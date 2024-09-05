@@ -158,13 +158,35 @@ fn main() {
         //
         
         let my_vert: Vec<f32> = vec![
-        0.6, 0.6, 0.0,
-        0.0, 0.6, 0.0,
-        0.6, 0.0, 0.0
+            0.1, 0.0, 0.0,   
+            0.1, 0.1, 0.0,   
+            0.0, 0.0, 0.0,   
+        
+            0.3, 0.0, 0.0,   
+            0.3, 0.1, 0.0,   
+            0.2, 0.0, 0.0,   
+        
+            0.5, 0.0, 0.0,   
+            0.5, 0.1, 0.0,   
+            0.4, 0.0, 0.0,   
+        
+            0.1, 0.2, 0.0,   
+            0.1, 0.3, 0.0,   
+            0.0, 0.2, 0.0,   
+        
+            0.3, 0.2, 0.0,   
+            0.3, 0.3, 0.0,   
+            0.2, 0.2, 0.0
         ];
 
 
-        let my_indi: Vec<u32> = vec![0, 1, 2];
+        let my_indi: Vec<u32> = vec![
+            0, 1, 2,  
+            3, 4, 5,  
+            6, 7, 8,  
+            9, 10, 11,
+            12, 13, 14
+        ];
 
         let my_vao = unsafe { create_vao(&my_vert, &my_indi)};
 
@@ -202,6 +224,8 @@ fn main() {
             let delta_time = now.duration_since(previous_frame_time).as_secs_f32();
             previous_frame_time = now;
 
+/* Resize commented out
+ 
             // Handle resize events
             if let Ok(mut new_size) = window_size.lock() {
                 if new_size.2 {
@@ -212,7 +236,7 @@ fn main() {
                     unsafe { gl::Viewport(0, 0, new_size.0 as i32, new_size.1 as i32); }
                 }
             }
-
+*/
             // Handle keyboard input
             if let Ok(keys) = pressed_keys.lock() {
                 for key in keys.iter() {
@@ -257,6 +281,7 @@ fn main() {
 
                 gl::BindVertexArray(my_vao);
                 gl::DrawElements(gl::TRIANGLES, my_indi.len() as i32, gl::UNSIGNED_INT, ptr::null());
+                gl::BindVertexArray(0);
             
 
 
