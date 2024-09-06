@@ -153,90 +153,96 @@ unsafe {
 
 ![Drawn Triangles](images/triangles.png)
 
-### Subsubheading
-
-This is a paragraph.
-This is the same paragraph.
-
-This is a new paragraph, with *italic*, **bold**, and `inline code` formatting.
-It is possible to use special classes to format text: [this is a test]{.smallcaps}.
-
-```rust
-//this is a code block with rust syntax highlighting
-println!("Hello, {}", 42);
-```
-
-[This](https://www.ntnu.no) is a link.
-[This][] is also a link. <!-- defined below -->
-This[^this_is_a_unique_footnote_label] is a footnote. <!-- defined below -->
-This^[Footnotes can also be written inline] is also a footnote.
-
-
-[This]: https://www.uio.no
-[^this_is_a_unique_footnote_label]: In footnotes you can write anything tangentially related.
-
-* This
-* is
-* a
-* unordered
-* list
-
-1. This
-1. is
-1. a
-1. ordered
-1. list
-    a. with
-    a. sub
-    a. list
-
-       with multiple paragraphs
-
-This is still on the first page
-
 `\clearpage`{=latex}
 
-<!--
-Above is a raw LaTeX statement.
-Those are included when exporting to LaTeX or PDF, and ignored when exporting to HTML.
--->
+#Task 2: Geometry and Theory
 
-This is on the second page
+![Drawn triangle](images/task2a)
 
-i) Roman ordered list
-i) Roman ordered list
-i) Roman ordered list
+##a)
+This phenimenon is called "Clipping". It occurs when some part of the object is outside of view area. 
+Clipping is used for improvement in computational performance in a way that we don't need to do calculations for 
+parts that are not visible to us.i) What is the name of this phenomenon?
+ii) When does it occur?
+iii) What is its purpose?
 
-This
-: is a definition
+##b)
+i) What happens?
+This is the data for the triangles we are trying to draw:
+```rust
+ let my_vert: Vec<f32> = vec![
+            0.1, 0.0, 0.0,
+            0.1, 0.1, 0.0,
+            0.0, 0.0, 0.0,
 
-> this is a
-block quote
+            0.3, 0.0, 0.0,
+            0.3, 0.1, 0.0,
+            0.2, 0.0, 0.0,
 
+            0.5, 0.0, 0.0,
+            0.5, 0.1, 0.0,
+            0.4, 0.0, 0.0,
+        ];
 
-This is a paragraph with _inline_ \LaTeX\ style math: $\frac{1}{2}$.
-Below is a math _block_:
+        let my_indi: Vec<u32> = vec![
+            0, 2, 1,
+            3, 4, 5,
+            6, 7, 8
+        ];
+```
+In this case we modified index buffer in a way where the first triangle has 
+replaced indices on my_indi[1] and my_indi[2]. The outcome is that the firs
+triangle is not drawn.
 
-$$
-    \int_{a}^{b} f(x)dx
-$$
+![Missing triangle](images/task2b)
 
+ii) Why?
+This happens bevause of the "Winding Order". Using winding order OpenGL determines triangles facing direction.
+If they are defined in clockwise order, the triangles are interpreted as front facing. If we change these values,
+triangles can be interpreted as back facing. 
 
-| This | is  | a   | table |
-| ---- | --- | --- | ----- |
-| 1    | 2   | 3   | 4     |
-| 5    | 6   | 7   | 8     |
+iii)
+The back facing ones are not rendered due to cull parameter.  
+```rust
+            gl::Enable(gl::CULL_FACE);
+``` 
 
-: This is a table caption
+##c)
+i) Why does the depth buffer need to be reset each frame? Describe what you
+would observe in a scene with sphere moving leftward when not clearing the
+depth buffer.
+ 
+The depth buffer is respnsible for the information of depth of an object. Or z-axis in x,y,z coordinate sytem.
+The buffer is cleared every time so that the old data does not interfere with current values shown on the scree.
+If the data wasn't cleared, we would see artifacts.
 
-This is an inline image with a fixed height:
-![](images/logo.png){height=5em}
+ii) In which situation can the Fragment Shader be executed multiple times for the
+same pixel? (Assume we do not use multisampling.)
 
-Below is a _figure_ (i.e. an image with a caption).
-It floats and may as a result move to a different page depending on the layout.
+In a situation where be have geometry with different depths. Where one fragment would be "hidden" behind the other 
+one. We will calculate the value for both fragments, but take value of only the one infront.
 
-![
-    Image with caption
-](images/logo.png)
+iii) What are the two most commonly used types of Shaders?
+What are the responsibilities of each of them?
+ 
+Most conomly used ones are fragment and vertex shader.
+Vertex shader is resonsible for positioning varuables. Transformiing vertex positions from object space to sceen space.
+
+Fragment shader are more responsible for effect variabes. Such as: color, texture , lightning.
+
+iiii) Why is it common to use an index buffer to specify which vertices should be
+connected into triangles, as opposed to relying on the order in which the vertices
+are specified in the vertex buffer(s)?
+
+For computing cost. In this way we can reuse vertices and get better performance. 
+
+v) While the last input of gl::VertexAttribPointer() is a pointer, we usually pass
+in a null pointer. Describe a situation in which you would pass a non-zero value
+into this function.
+
+This pointer represents the offset value for the vertex data. So If we have a data in a buffer
+that isn't only vertex data, using this offset we can specify where does vertex data begin.
+
+`\clearpage`{=latex}
 
 Enable and use the `pandoc-crossref` filter to reference figures, tables and equations.
