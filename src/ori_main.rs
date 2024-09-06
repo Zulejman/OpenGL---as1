@@ -91,6 +91,7 @@ unsafe fn create_vao(vertices: &Vec<f32>, indices: &Vec<u32>) -> u32 {
 
     gl::BindVertexArray(0);
     vao
+
 }
 
 
@@ -157,24 +158,39 @@ fn main() {
         //
         
         let my_vert: Vec<f32> = vec![
-            0.1, 0.0, 0.0,   
-            0.1, 0.1, 0.0,   
-            0.0, 0.0, 0.0,   
-        
-            0.3, 0.0, 0.0,   
-            0.3, 0.1, 0.0,   
-            0.2, 0.0, 0.0,   
-        
-            0.5, 0.0, 0.0,   
-            0.5, 0.1, 0.0,   
-            0.4, 0.0, 0.0,   
+    0.6, 0.6, 0.0,   // Vertex 0
+    0.0, 0.6, 0.0,   // Vertex 1
+    0.6, 0.0, 0.0,   // Vertex 2
+
+    // Triangle 2
+    -0.6, 0.6, 0.0,  // Vertex 3
+    -0.0, 0.6, 0.0,  // Vertex 4
+    -0.6, 0.0, 0.0,  // Vertex 5
+
+    // Triangle 3
+    0.6, -0.6, 0.0,  // Vertex 6
+    0.0, -0.6, 0.0,  // Vertex 7
+    0.6, -0.0, 0.0,  // Vertex 8
+                     //
+    // Triangle 4
+    -0.6, -0.6, 0.0, // Vertex 9
+    -0.0, -0.6, 0.0, // Vertex 10
+    -0.6, -0.0, 0.0, // Vertex 11
+
+    // Triangle 5
+    0.3, 0.3, 0.0,   // Vertex 12
+    -0.3, 0.3, 0.0,  // Vertex 13
+    0.0, -0.3, 0.0  // Vertex 14
+
         ];
 
 
         let my_indi: Vec<u32> = vec![
-            0, 1, 2,  
-            3, 4, 5,
-            6, 7, 8
+    0, 1, 2,  // Indices for Triangle 1
+    3, 4, 5,  // Indices for Triangle 2
+    6, 7, 8,  // Indices for Triangle 3
+    9, 10, 11, // Indices for Triangle 4
+    12, 13, 14 // Indices for Triangle 5
         ];
 
         let my_vao = unsafe { create_vao(&my_vert, &my_indi)};

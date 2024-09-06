@@ -30,6 +30,8 @@ This is a HTML-style comment, not visible in the final PDF.
 
 # Tasks	 
 
+git repo: https://github.com/Zulejman/OpenGL---as1.git
+
 ## Task 1: Drwaing your first triangle 
 
 While creating the first triangle we need to use the function vao. This function creates Vertex Array Object (VAO) and binds it.
@@ -59,7 +61,10 @@ unsafe fn create_vao(vertices: &Vec<f32>, indices: &Vec<u32>) -> u32 {
     gl::GenBuffers(1, &mut vbo);
     gl::BindBuffer(gl::ARRAY_BUFFER, vbo);
 
-    gl::BufferData(gl::ARRAY_BUFFER, byte_size_of_array(vertices),  pointer_to_array(vertices), gl::STATIC_DRAW);
+    gl::BufferData(gl::ARRAY_BUFFER, 
+		   byte_size_of_array(vertices),  
+	   	   pointer_to_array(vertices), 
+ 		   gl::STATIC_DRAW);
 
     gl::VertexAttribPointer(
         0,
@@ -74,12 +79,16 @@ unsafe fn create_vao(vertices: &Vec<f32>, indices: &Vec<u32>) -> u32 {
 
     gl::GenBuffers(1, &mut indices_val);
     gl::BindBuffer(gl::ELEMENT_ARRAY_BUFFER, indices_val);
-    gl::BufferData(gl::ELEMENT_ARRAY_BUFFER, byte_size_of_array(indices),  pointer_to_array(indices), gl::STATIC_DRAW);
+    gl::BufferData(gl::ELEMENT_ARRAY_BUFFER, 
+		   byte_size_of_array(indices),  
+		   pointer_to_array(indices), 
+		   gl::STATIC_DRAW);
 
     gl::BindVertexArray(0);
     vao
 }
 ```
+
 
 Indices and creation of VAO with given vector values:
 
@@ -119,15 +128,16 @@ let my_vert: Vec<f32> = vec![
 ```
 
 
+
 Before we draw the triangles we need to link shaders:
 
 ```rust
 let simple_shader = unsafe {
-                shader::ShaderBuilder::new()
-                .attach_file("./shaders/simple.vert")
-                .attach_file("./shaders/simple.frag")
-                .link()
-        };
+	shader::ShaderBuilder::new()
+	.attach_file("./shaders/simple.vert")
+	.attach_file("./shaders/simple.frag")
+	.link()
+};
 ```
 
 `\clearpage`{=latex}
@@ -136,37 +146,37 @@ And after clearing the scene we now can draw our triangles:
 
 ```rust
 unsafe {
-                // Clear the color and depth buffers
-                gl::ClearColor(0.035, 0.046, 0.078, 1.0); // night sky
-                gl::Clear(gl::COLOR_BUFFER_BIT | gl::DEPTH_BUFFER_BIT);
+	// Clear the color and depth buffers
+	gl::ClearColor(0.035, 0.046, 0.078, 1.0); // night sky
+	gl::Clear(gl::COLOR_BUFFER_BIT | gl::DEPTH_BUFFER_BIT);
 
 
-                // == // Issue the necessary gl:: commands to draw your scene here
-                //
-                simple_shader.activate();
+	// == // Issue the necessary gl:: commands to draw your scene here
+	//
+	simple_shader.activate();
 
-                gl::BindVertexArray(my_vao);
-                gl::DrawElements(gl::TRIANGLES, my_indi.len() as i32, gl::UNSIGNED_INT, ptr::null());
-                gl::BindVertexArray(0);
-            }
+	gl::BindVertexArray(my_vao);
+	gl::DrawElements(gl::TRIANGLES, my_indi.len() as i32, gl::UNSIGNED_INT, ptr::null());
+	gl::BindVertexArray(0);
+    }
 ```
 
 ![Drawn Triangles](images/triangles.png)
 
 `\clearpage`{=latex}
 
-#Task 2: Geometry and Theory
+# Task 2: Geometry and Theory
 
-![Drawn triangle](images/task2a)
+![Drawn triangle](images/task2a.png)
 
-##a)
+## a)
 This phenimenon is called "Clipping". It occurs when some part of the object is outside of view area. 
 Clipping is used for improvement in computational performance in a way that we don't need to do calculations for 
 parts that are not visible to us.i) What is the name of this phenomenon?
 ii) When does it occur?
 iii) What is its purpose?
 
-##b)
+## b)
 i) What happens?
 This is the data for the triangles we are trying to draw:
 ```rust
@@ -194,7 +204,7 @@ In this case we modified index buffer in a way where the first triangle has
 replaced indices on my_indi[1] and my_indi[2]. The outcome is that the firs
 triangle is not drawn.
 
-![Missing triangle](images/task2b)
+![Missing triangle](images/task2b.png)
 
 ii) Why?
 This happens bevause of the "Winding Order". Using winding order OpenGL determines triangles facing direction.
@@ -207,7 +217,7 @@ The back facing ones are not rendered due to cull parameter.
             gl::Enable(gl::CULL_FACE);
 ``` 
 
-##c)
+## c)
 i) Why does the depth buffer need to be reset each frame? Describe what you
 would observe in a scene with sphere moving leftward when not clearing the
 depth buffer.
@@ -245,4 +255,9 @@ that isn't only vertex data, using this offset we can specify where does vertex 
 
 `\clearpage`{=latex}
 
-Enable and use the `pandoc-crossref` filter to reference figures, tables and equations.
+## d)
+
+The mirroring of the scene can be achieved by using transformation matrix in vertex shader.
+And color can be changed in the fragment shader.
+
+![Transformed image](images/2d.png)  
