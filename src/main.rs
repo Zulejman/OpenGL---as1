@@ -12,6 +12,7 @@ use std::{ mem, ptr, os::raw::c_void };
 use std::thread;
 use std::sync::{Mutex, Arc, RwLock};
 
+// Mine 
 mod shader;
 mod util;
 
@@ -23,7 +24,7 @@ const INITIAL_SCREEN_W: u32 = 800;
 const INITIAL_SCREEN_H: u32 = 600;
 
 // == // Helper functions to make interacting with OpenGL a little bit prettier. You *WILL* need these! // == //
-
+//
 // Get the size of an arbitrary array of numbers measured in bytes
 // Example usage:  byte_size_of_array(my_array)
 fn byte_size_of_array<T>(val: &[T]) -> isize {
@@ -52,7 +53,7 @@ fn offset<T>(n: u32) -> *const c_void {
 // ptr::null()
 
 // == // Generate your VAO here
-unsafe fn create_vao(vertices: &Vec<f32>, indices: &Vec<u32>) -> u32 {
+unsafe fn create_vao(vertices: &Vec<f32>, indices: &Vec<u32>, rgba: &Vec<f32>) -> u32 {
 
     // This should:
     // * Generate a VAO and bind it
@@ -66,6 +67,7 @@ unsafe fn create_vao(vertices: &Vec<f32>, indices: &Vec<u32>) -> u32 {
     let mut vao: u32 = 0; 
     let mut vbo: u32 = 0;
     let mut indices_val: u32 = 0;
+    let mut rgba_val: u32 = 0;
 
     gl::GenVertexArrays(1, &mut vao);
     gl::BindVertexArray(vao);
@@ -79,12 +81,26 @@ unsafe fn create_vao(vertices: &Vec<f32>, indices: &Vec<u32>) -> u32 {
         3,
         gl::FLOAT,
         gl::FALSE,
-        3*size_of::<f32>(),
+        3*size_of::<u32>(),
         ptr::null()
     ); 
 
     gl::EnableVertexAttribArray(0);
-    
+
+    gl::GenBuffers(1, &mut rgba_val);
+    gl::BindBuffer(gl::ARRAY_BUFFER, rgba_val);
+    gl::BufferData(gl::ARRAY_BUFFER, byte_size_of_array(rgba), pointer_to_array(rgba), gl::STATIC_DRAW); 
+    gl::VertexAttribPointer(
+        1,
+        4,
+        gl::FLOAT,
+        gl::FALSE,
+        4 * size_of::<f32>(),
+        ptr::null()
+        );
+
+    gl::EnableVertexAttribArray(1);
+
     gl::GenBuffers(1, &mut indices_val);
     gl::BindBuffer(gl::ELEMENT_ARRAY_BUFFER, indices_val);
     gl::BufferData(gl::ELEMENT_ARRAY_BUFFER, byte_size_of_array(indices),  pointer_to_array(indices), gl::STATIC_DRAW);
@@ -153,21 +169,24 @@ fn main() {
             println!("GLSL\t: {}", util::get_gl_string(gl::SHADING_LANGUAGE_VERSION));
         }
 
+
+
+
         // == // Set up your VAO around here
         //
         
         let my_vert: Vec<f32> = vec![
-            0.1, 0.0, 0.0,   
-            0.1, 0.1, 0.0,   
-            0.0, 0.0, 0.0,   
-        
-            0.3, 0.0, 0.0,   
-            0.3, 0.1, 0.0,   
-            0.2, 0.0, 0.0,   
-        
-            0.5, 0.0, 0.0,   
-            0.5, 0.1, 0.0,   
-            0.4, 0.0, 0.0,   
+                0.3, 0.0, 0.5,
+                0.6, 0.5, 0.5,
+                0.0, 0.5, 0.5,
+
+                0.35, 0.1, 0.3,
+                0.65, 0.55, 0.3,
+                0.05, 0.55, 0.3,
+
+                0.4, 0.2, 0.1,
+                0.7, 0.6, 0.1,
+                0.1, 0.6, 0.1,
         ];
 
 
@@ -177,7 +196,25 @@ fn main() {
             6, 7, 8
         ];
 
-        let my_vao = unsafe { create_vao(&my_vert, &my_indi)};
+
+        let my_rgba: Vec<f32> = vec![
+
+             0.0, 1.0, 0.0, 0.4, 
+             0.0, 1.0, 0.0, 0.4, 
+             0.0, 1.0, 0.0, 0.4, 
+
+             1.0, 0.0, 0.0, 0.4, 
+             1.0, 0.0, 0.0, 0.4, 
+             1.0, 0.0, 0.0, 0.4, 
+
+
+             0.0, 0.0, 1.0, 0.4, 
+             0.0, 0.0, 1.0, 0.4, 
+             0.0, 0.0, 1.0, 0.4 
+        ];
+
+
+        let my_vao = unsafe { create_vao(&my_vert, &my_indi, &my_rgba)};
 
 
         // == // Set up your shaders here
@@ -212,6 +249,8 @@ fn main() {
             let elapsed = now.duration_since(first_frame_time).as_secs_f32();
             let delta_time = now.duration_since(previous_frame_time).as_secs_f32();
             previous_frame_time = now;
+
+            let sin_elapsed = elapsed.sin();
 
 /* Resize commented out
  
@@ -256,11 +295,10 @@ fn main() {
             }
 
             // == // Please compute camera transforms here (exercise 2 & 3)
-
+            let mut t_matrix = glm::identity::<f32, 4>();
 
             unsafe {
-                // Clear the color and depth buffers
-                gl::ClearColor(0.035, 0.046, 0.078, 1.0); // night sky
+                gl::ClearColor(0.0, 0.0, 0.0, 1.0); // night sky
                 gl::Clear(gl::COLOR_BUFFER_BIT | gl::DEPTH_BUFFER_BIT);
 
 
@@ -268,11 +306,15 @@ fn main() {
                 //
                 simple_shader.activate();
 
+                let program_id = simple_shader.program_id;
+                let location = gl::GetUniformLocation(program_id, "transform_matrix".as_ptr() as * const i8);
+
+                gl::UniformMatrix4fv(location, 1, gl::FALSE, t_matrix.as_ptr());
+
                 gl::BindVertexArray(my_vao);
                 gl::DrawElements(gl::TRIANGLES, my_indi.len() as i32, gl::UNSIGNED_INT, ptr::null());
                 gl::BindVertexArray(0);
             
-
 
 
             }
