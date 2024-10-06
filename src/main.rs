@@ -15,9 +15,13 @@ use std::sync::{Mutex, Arc, RwLock};
 // Mine 
 mod shader;
 mod util;
+mod toolbox;
+mod scene_graph;
+mod mesh;
 
 use glutin::event::{Event, WindowEvent, DeviceEvent, KeyboardInput, ElementState::{Pressed, Released}, VirtualKeyCode::{self, *}};
 use glutin::event_loop::ControlFlow;
+use scene_graph::SceneNode;
 
 // initial window size
 const INITIAL_SCREEN_W: u32 = 800;
@@ -238,6 +242,20 @@ fn main() {
 
         // Used to demonstrate keyboard handling for exercise 2.
         let mut _arbitrary_number = 0.0; // feel free to remove
+                                         //
+
+        let mut cam_position = glm::vec3(0.0, 0.0, 0.0);
+        let mut up_down: f32 = 0.0;
+        let mut left_right: f32 = 0.0;
+        let camera_speed: f32 = 10.0;
+
+        //let terrain: &str = "./resources/lunarsurface.obj";
+        let world: mesh::Mesh = mesh::Terrain::load("./resources/lunarsurface.obj");
+        let mut terrain_vao = unsafe {create_vao(&world.vertices, &world.indices, &world.colors)};  
+
+        let mut parent_node = SceneNode::new();
+        let mut terrain_node = SceneNode::from_vao(terrain_vao, world.index_count);
+
 
 
         // The main rendering loop
@@ -272,13 +290,31 @@ fn main() {
                         // The `VirtualKeyCode` enum is defined here:
                         //    https://docs.rs/winit/0.25.0/winit/event/enum.VirtualKeyCode.html
 
-                        VirtualKeyCode::A => {
-                            _arbitrary_number += delta_time;
+                        VirtualKeyCode::W => {                                                                                     cam_position.z += delta_time * camera_speed;
+                        }
+                        VirtualKeyCode::S => {
+                            cam_position.z -= delta_time * camera_speed;
                         }
                         VirtualKeyCode::D => {
-                            _arbitrary_number -= delta_time;
+                            cam_position.x -= delta_time * camera_speed;
                         }
-
+                        VirtualKeyCode::A => {                                                                                     cam_position.x += delta_time * camera_speed;
+                        }
+                        VirtualKeyCode::Space => {
+                            cam_position.y += delta_time * camera_speed;
+                        }
+                        VirtualKeyCode::LShift => {
+                            cam_position.y -= delta_time * camera_speed;
+                        }
+                        VirtualKeyCode::Up => {                                                                                     up_down -= delta_time * camera_speed;
+                        }
+                        VirtualKeyCode::Down => {
+                            up_down += delta_time * camera_speed;                                                                         }
+                        VirtualKeyCode::Right => {                                                                                 left_right += delta_time * camera_speed;
+                        }
+                        VirtualKeyCode::Left => {
+                            left_right -= delta_time * camera_speed;
+                        }
 
                         // default handler:
                         _ => { }
@@ -297,26 +333,54 @@ fn main() {
             // == // Please compute camera transforms here (exercise 2 & 3)
             let mut t_matrix = glm::identity::<f32, 4>();
 
+            let mut view_matrix: glm::Mat4 = glm::identity();
+
+            let fovy = 45.0_f32.to_radians();
+
+            let perspective_transform = glm::perspective(window_aspect_ratio, fovy, 0.1, 1000.0);
+            let position_transform = glm::translation(&cam_position);
+
+            let yaw_rotation = glm::rotation(up_down, &glm::vec3(0.0, 1.0, 0.0));
+            let pitch_rotation = glm::rotation(left_right, &glm::vec3(1.0, 0.0, 0.0));
+
+            view_matrix = perspective_transform * pitch_rotation * yaw_rotation * view_matrix * position_transform;
+
             unsafe {
-                gl::ClearColor(0.0, 0.0, 0.0, 1.0); // night sky
-                gl::Clear(gl::COLOR_BUFFER_BIT | gl::DEPTH_BUFFER_BIT);
-
-
-                // == // Issue the necessary gl:: commands to draw your scene here
-                //
                 simple_shader.activate();
 
-                let program_id = simple_shader.program_id;
-                let location = gl::GetUniformLocation(program_id, "transform_matrix".as_ptr() as * const i8);
+                // Clear the color and depth buffers
+                gl::ClearColor(0.035, 0.046, 0.078, 1.0); // night sky
+                gl::Clear(gl::COLOR_BUFFER_BIT | gl::DEPTH_BUFFER_BIT);
 
-                gl::UniformMatrix4fv(location, 1, gl::FALSE, t_matrix.as_ptr());
+                unsafe fn draw_scene(node: &SceneNode, view_projection_matrix: &glm::Mat4, transformation_this_far: &glm::Mat4, shader: &shader::Shader) {
+                    let mut node_transformation = glm::identity::<f32, 4>();
 
-                gl::BindVertexArray(my_vao);
-                gl::DrawElements(gl::TRIANGLES, my_indi.len() as i32, gl::UNSIGNED_INT, ptr::null());
-                gl::BindVertexArray(0);
-            
+                    let to_ref = glm::translation(&node.reference_point);
+                    let from_ref = glm::translation(&-node.reference_point);
 
+                    let roll = glm::rotation(node.rotation.x, &glm::vec3(1.0, 0.0, 0.0));
+                    let pitch = glm::rotation(node.rotation.y, &glm::vec3(0.0, 1.0, 0.0));
+                    let yaw = glm::rotation(node.rotation.z, &glm::vec3(0.0, 0.0, 1.0));
 
+                    let position_transform = glm::translation(&node.position);
+                    let scale_transform = glm::scaling(&node.scale);
+
+                    node_transformation = position_transform * from_ref * scale_transform * pitch * roll * yaw * to_ref;
+
+                    if node.vao_id != 0 {
+                        shader.activate();
+                        gl::UniformMatrix4fv(shader.get_uniform_location("mvp_matrix"), 1, gl::FALSE, glm::value_ptr(&(view_projection_matrix*transformation_this_far*node_transformation)).as_ptr());
+                        gl::UniformMatrix4fv(shader.get_uniform_location("model_matrix"), 1, gl::FALSE, glm::value_ptr(&(transformation_this_far * node_transformation)).as_ptr());
+                        gl::BindVertexArray(node.vao_id);
+                        gl::DrawElements(gl::TRIANGLES, node.index_count, gl::UNSIGNED_INT, offset::<f32>(0));
+                    }
+
+                    for &child in &node.children {
+                        draw_scene(&*child, view_projection_matrix, &(transformation_this_far*node_transformation), shader);
+                    }
+                }
+
+                draw_scene(&parent_node, &view_matrix, &glm::identity(), &simple_shader);
             }
 
             // Display the new color buffer on the display
