@@ -236,8 +236,14 @@ fn main() {
         
 
 
-        // Used to demonstrate keyboard handling for exercise 2.
-        let mut _arbitrary_number = 0.0; // feel free to remove
+        let mut camera_position = glm::vec3(0.0, 0.0, 0.0);
+        let mut pitch: f32 = 0.0;
+        let mut yaw: f32 = 0.0; 
+        let camera_speed: f32 = 10.0;
+
+        let path_terrain: &str = "./resources/lunarsurface.obj";
+        let world: mesh::Mesh = mesh::Terrain::load(&path_terrain);
+
 
 
         // The main rendering loop
@@ -252,7 +258,6 @@ fn main() {
 
             let sin_elapsed = elapsed.sin();
 
-/* Resize commented out
  
             // Handle resize events
             if let Ok(mut new_size) = window_size.lock() {
@@ -264,7 +269,6 @@ fn main() {
                     unsafe { gl::Viewport(0, 0, new_size.0 as i32, new_size.1 as i32); }
                 }
             }
-*/
             // Handle keyboard input
             if let Ok(keys) = pressed_keys.lock() {
                 for key in keys.iter() {
@@ -273,10 +277,42 @@ fn main() {
                         //    https://docs.rs/winit/0.25.0/winit/event/enum.VirtualKeyCode.html
 
                         VirtualKeyCode::A => {
-                            _arbitrary_number += delta_time;
+                            camera_position.x -= camera_speed * delta_time;
                         }
                         VirtualKeyCode::D => {
-                            _arbitrary_number -= delta_time;
+                            camera_position.x += camera_speed * delta_time;
+                        }
+
+                        // Translation along Z-axis (W: forward, S: backward)
+                        VirtualKeyCode::W => {
+                            camera_position.z += camera_speed * delta_time;
+                        }
+                        VirtualKeyCode::S => {
+                            camera_position.z -= camera_speed * delta_time;
+                        }
+
+                        // Translation along Y-axis (Space: up, Left Shift: down)
+                        VirtualKeyCode::Space => {
+                            camera_position.y += camera_speed * delta_time;
+                        }
+                        VirtualKeyCode::LShift => {
+                            camera_position.y -= camera_speed * delta_time;
+                        }
+
+                        // Rotation around X-axis (Pitch: Up and Down Arrow)
+                        VirtualKeyCode::Up => {
+                            pitch += camera_speed * delta_time;
+                        }
+                        VirtualKeyCode::Down => {
+                            pitch -= camera_speed * delta_time;
+                        }
+
+                        // Rotation around Y-axis (Yaw: Left and Right Arrow)
+                        VirtualKeyCode::Left => {
+                            yaw -= camera_speed * delta_time;
+                        }
+                        VirtualKeyCode::Right => {
+                            yaw += camera_speed * delta_time;
                         }
 
 
@@ -295,27 +331,25 @@ fn main() {
             }
 
             // == // Please compute camera transforms here (exercise 2 & 3)
-            let mut t_matrix = glm::identity::<f32, 4>();
+            //let mut t_matrix = glm::identity::<f32, 4>();
+            
+            let mut view_matrix: glm::Mat4 = glm::identity();
+
+            let fovy = 45.0_f32.to_radians();
+
+            let perspective_transform = glm::perspective(window_aspect_ratio, fovy, 0.1, 1000.0);
+            let position_transform = glm::translation(&camera_position);
+
+            let yaw_rotation = glm::rotation(yaw, &glm::vec3(0.0, 1.0, 0.0));
+            let pitch_rotation = glm::rotation(pitch, &glm::vec3(1.0, 0.0, 0.0));
+
+            view_matrix = perspective_transform * pitch_rotation * yaw_rotation * view_matrix * position_transform;
+
 
             unsafe {
                 gl::ClearColor(0.0, 0.0, 0.0, 1.0); // night sky
                 gl::Clear(gl::COLOR_BUFFER_BIT | gl::DEPTH_BUFFER_BIT);
-
-
-                // == // Issue the necessary gl:: commands to draw your scene here
-                //
                 simple_shader.activate();
-
-                let program_id = simple_shader.program_id;
-                let location = gl::GetUniformLocation(program_id, "transform_matrix".as_ptr() as * const i8);
-
-                gl::UniformMatrix4fv(location, 1, gl::FALSE, t_matrix.as_ptr());
-
-                gl::BindVertexArray(my_vao);
-                gl::DrawElements(gl::TRIANGLES, my_indi.len() as i32, gl::UNSIGNED_INT, ptr::null());
-                gl::BindVertexArray(0);
-            
-
 
             }
 
