@@ -8,13 +8,16 @@
 #![allow(unused_variables)]
 
 extern crate nalgebra_glm as glm;
-use std::{ mem, ptr, os::raw::c_void };
+use std::{mem, ptr, os::raw::c_void};
 use std::thread;
 use std::sync::{Mutex, Arc, RwLock};
+use std::ffi::CString;
 
-// Mine 
+// Mine
 mod shader;
 mod util;
+mod mesh;
+mod scene_graph;
 
 use glutin::event::{Event, WindowEvent, DeviceEvent, KeyboardInput, ElementState::{Pressed, Released}, VirtualKeyCode::{self, *}};
 use glutin::event_loop::ControlFlow;
@@ -53,62 +56,67 @@ fn offset<T>(n: u32) -> *const c_void {
 // ptr::null()
 
 // == // Generate your VAO here
-unsafe fn create_vao(vertices: &Vec<f32>, indices: &Vec<u32>, rgba: &Vec<f32>) -> u32 {
-
-    // This should:
-    // * Generate a VAO and bind it
-    // * Generate a VBO and bind it
-    // * Fill it with data
-    // * Configure a VAP for the data and enable it
-    // * Generate a IBO and bind it
-    // * Fill it with data
-    // * Return the ID of the VAO
-    
-    let mut vao: u32 = 0; 
-    let mut vbo: u32 = 0;
-    let mut indices_val: u32 = 0;
-    let mut rgba_val: u32 = 0;
+unsafe fn create_vao(vertices: &Vec<f32>, indices: &Vec<u32>, colors: &Vec<f32>, normals: &Vec<f32>) -> u32 {
+    let mut vao: u32 = 0;
 
     gl::GenVertexArrays(1, &mut vao);
     gl::BindVertexArray(vao);
-    gl::GenBuffers(1, &mut vbo);
-    gl::BindBuffer(gl::ARRAY_BUFFER, vbo);
 
-    gl::BufferData(gl::ARRAY_BUFFER, byte_size_of_array(vertices),  pointer_to_array(vertices), gl::STATIC_DRAW);
-
-    gl::VertexAttribPointer(
-        0, 
-        3,
-        gl::FLOAT,
-        gl::FALSE,
-        3*size_of::<u32>(),
-        ptr::null()
-    ); 
-
+    // Positions
+    let mut position_vbo: u32 = 0;
+    gl::GenBuffers(1, &mut position_vbo);
+    gl::BindBuffer(gl::ARRAY_BUFFER, position_vbo);
+    gl::BufferData(
+        gl::ARRAY_BUFFER,
+        byte_size_of_array(vertices),
+        pointer_to_array(vertices),
+        gl::STATIC_DRAW,
+    );
+    gl::VertexAttribPointer(0, 3, gl::FLOAT, gl::FALSE, 0, ptr::null());
     gl::EnableVertexAttribArray(0);
 
-    gl::GenBuffers(1, &mut rgba_val);
-    gl::BindBuffer(gl::ARRAY_BUFFER, rgba_val);
-    gl::BufferData(gl::ARRAY_BUFFER, byte_size_of_array(rgba), pointer_to_array(rgba), gl::STATIC_DRAW); 
-    gl::VertexAttribPointer(
-        1,
-        4,
-        gl::FLOAT,
-        gl::FALSE,
-        4 * size_of::<f32>(),
-        ptr::null()
-        );
-
+    // Colors
+    let mut color_vbo: u32 = 0;
+    gl::GenBuffers(1, &mut color_vbo);
+    gl::BindBuffer(gl::ARRAY_BUFFER, color_vbo);
+    gl::BufferData(
+        gl::ARRAY_BUFFER,
+        byte_size_of_array(colors),
+        pointer_to_array(colors),
+        gl::STATIC_DRAW,
+    );
+    gl::VertexAttribPointer(1, 4, gl::FLOAT, gl::FALSE, 0, ptr::null());
     gl::EnableVertexAttribArray(1);
 
-    gl::GenBuffers(1, &mut indices_val);
-    gl::BindBuffer(gl::ELEMENT_ARRAY_BUFFER, indices_val);
-    gl::BufferData(gl::ELEMENT_ARRAY_BUFFER, byte_size_of_array(indices),  pointer_to_array(indices), gl::STATIC_DRAW);
+    // Normals
+    let mut normal_vbo: u32 = 0;
+    gl::GenBuffers(1, &mut normal_vbo);
+    gl::BindBuffer(gl::ARRAY_BUFFER, normal_vbo);
+    gl::BufferData(
+        gl::ARRAY_BUFFER,
+        byte_size_of_array(normals),
+        pointer_to_array(normals),
+        gl::STATIC_DRAW,
+    );
+    gl::VertexAttribPointer(2, 3, gl::FLOAT, gl::FALSE, 0, ptr::null());
+    gl::EnableVertexAttribArray(2);
 
+    // Indices
+    let mut ebo: u32 = 0;
+    gl::GenBuffers(1, &mut ebo);
+    gl::BindBuffer(gl::ELEMENT_ARRAY_BUFFER, ebo);
+    gl::BufferData(
+        gl::ELEMENT_ARRAY_BUFFER,
+        byte_size_of_array(indices),
+        pointer_to_array(indices),
+        gl::STATIC_DRAW,
+    );
+
+    // Unbind VAO (optional but good practice)
     gl::BindVertexArray(0);
+
     vao
 }
-
 
 fn main() {
     // Set up the necessary objects to deal with windows and event handling
@@ -169,54 +177,6 @@ fn main() {
             println!("GLSL\t: {}", util::get_gl_string(gl::SHADING_LANGUAGE_VERSION));
         }
 
-
-
-
-        // == // Set up your VAO around here
-        //
-        
-        let my_vert: Vec<f32> = vec![
-                0.3, 0.0, 0.5,
-                0.6, 0.5, 0.5,
-                0.0, 0.5, 0.5,
-
-                0.35, 0.1, 0.3,
-                0.65, 0.55, 0.3,
-                0.05, 0.55, 0.3,
-
-                0.4, 0.2, 0.1,
-                0.7, 0.6, 0.1,
-                0.1, 0.6, 0.1,
-        ];
-
-
-        let my_indi: Vec<u32> = vec![
-            0, 1, 2,  
-            3, 4, 5,
-            6, 7, 8
-        ];
-
-
-        let my_rgba: Vec<f32> = vec![
-
-             0.0, 1.0, 0.0, 0.4, 
-             0.0, 1.0, 0.0, 0.4, 
-             0.0, 1.0, 0.0, 0.4, 
-
-             1.0, 0.0, 0.0, 0.4, 
-             1.0, 0.0, 0.0, 0.4, 
-             1.0, 0.0, 0.0, 0.4, 
-
-
-             0.0, 0.0, 1.0, 0.4, 
-             0.0, 0.0, 1.0, 0.4, 
-             0.0, 0.0, 1.0, 0.4 
-        ];
-
-
-        let my_vao = unsafe { create_vao(&my_vert, &my_indi, &my_rgba)};
-
-
         // == // Set up your shaders here
 
         // Basic usage of shader helper:
@@ -226,25 +186,20 @@ fn main() {
         // This snippet is not enough to do the exercise, and will need to be modified (outside
         // of just using the correct path), but it only needs to be called once
 
-        
         let simple_shader = unsafe {
-                shader::ShaderBuilder::new()
+            shader::ShaderBuilder::new()
                 .attach_file("./shaders/simple.vert")
                 .attach_file("./shaders/simple.frag")
                 .link()
         };
-        
 
+        let mut camera_position = glm::vec3(0.0, 50.0, 200.0);
+        let mut camera_speed: f32 = 50.0;
 
-        let mut camera_position = glm::vec3(0.0, 0.0, 0.0);
-        let mut pitch: f32 = 0.0;
-        let mut yaw: f32 = 0.0; 
-        let camera_speed: f32 = 10.0;
+        let terrain_mesh = mesh::Terrain::load("./resources/lunarsurface.obj");
 
-        let path_terrain: &str = "./resources/lunarsurface.obj";
-        let world: mesh::Mesh = mesh::Terrain::load(&path_terrain);
-
-
+        let terrain_vao = unsafe {
+            create_vao(&terrain_mesh.vertices, &terrain_mesh.indices, &terrain_mesh.colors, &terrain_mesh.normals)};
 
         // The main rendering loop
         let first_frame_time = std::time::Instant::now();
@@ -256,9 +211,6 @@ fn main() {
             let delta_time = now.duration_since(previous_frame_time).as_secs_f32();
             previous_frame_time = now;
 
-            let sin_elapsed = elapsed.sin();
-
- 
             // Handle resize events
             if let Ok(mut new_size) = window_size.lock() {
                 if new_size.2 {
@@ -273,9 +225,6 @@ fn main() {
             if let Ok(keys) = pressed_keys.lock() {
                 for key in keys.iter() {
                     match key {
-                        // The `VirtualKeyCode` enum is defined here:
-                        //    https://docs.rs/winit/0.25.0/winit/event/enum.VirtualKeyCode.html
-
                         VirtualKeyCode::A => {
                             camera_position.x -= camera_speed * delta_time;
                         }
@@ -283,41 +232,20 @@ fn main() {
                             camera_position.x += camera_speed * delta_time;
                         }
 
-                        // Translation along Z-axis (W: forward, S: backward)
                         VirtualKeyCode::W => {
-                            camera_position.z += camera_speed * delta_time;
-                        }
-                        VirtualKeyCode::S => {
                             camera_position.z -= camera_speed * delta_time;
                         }
+                        VirtualKeyCode::S => {
+                            camera_position.z += camera_speed * delta_time;
+                        }
 
-                        // Translation along Y-axis (Space: up, Left Shift: down)
                         VirtualKeyCode::Space => {
                             camera_position.y += camera_speed * delta_time;
                         }
                         VirtualKeyCode::LShift => {
                             camera_position.y -= camera_speed * delta_time;
                         }
-
-                        // Rotation around X-axis (Pitch: Up and Down Arrow)
-                        VirtualKeyCode::Up => {
-                            pitch += camera_speed * delta_time;
-                        }
-                        VirtualKeyCode::Down => {
-                            pitch -= camera_speed * delta_time;
-                        }
-
-                        // Rotation around Y-axis (Yaw: Left and Right Arrow)
-                        VirtualKeyCode::Left => {
-                            yaw -= camera_speed * delta_time;
-                        }
-                        VirtualKeyCode::Right => {
-                            yaw += camera_speed * delta_time;
-                        }
-
-
-                        // default handler:
-                        _ => { }
+                        _ => {}
                     }
                 }
             }
@@ -330,39 +258,48 @@ fn main() {
                 *delta = (0.0, 0.0); // reset when done
             }
 
-            // == // Please compute camera transforms here (exercise 2 & 3)
-            //let mut t_matrix = glm::identity::<f32, 4>();
-            
-            let mut view_matrix: glm::Mat4 = glm::identity();
-
-            let fovy = 45.0_f32.to_radians();
-
-            let perspective_transform = glm::perspective(window_aspect_ratio, fovy, 0.1, 1000.0);
-            let position_transform = glm::translation(&camera_position);
-
-            let yaw_rotation = glm::rotation(yaw, &glm::vec3(0.0, 1.0, 0.0));
-            let pitch_rotation = glm::rotation(pitch, &glm::vec3(1.0, 0.0, 0.0));
-
-            view_matrix = perspective_transform * pitch_rotation * yaw_rotation * view_matrix * position_transform;
-
+            // == // Compute camera transforms here
+            let projection_matrix = glm::perspective(window_aspect_ratio, 45.0_f32.to_radians(), 0.1, 1000.0);
+            let view_matrix = glm::look_at(&camera_position, &(camera_position + glm::vec3(0.0, 0.0, -1.0)), &glm::vec3(0.0, 1.0, 0.0),);
+            let model_matrix = glm::identity::<f32, 4>();
 
             unsafe {
-                gl::ClearColor(0.0, 0.0, 0.0, 1.0); // night sky
+                gl::ClearColor(0.1, 0.1, 0.1, 1.0);
                 gl::Clear(gl::COLOR_BUFFER_BIT | gl::DEPTH_BUFFER_BIT);
-                simple_shader.activate();
-
             }
 
-            // Display the new color buffer on the display
+            unsafe {
+                simple_shader.activate();
+            }
+
+            unsafe {
+                let model_loc = gl::GetUniformLocation(simple_shader.program_id, CString::new("model").unwrap().as_ptr());
+                let view_loc = gl::GetUniformLocation(simple_shader.program_id, CString::new("view").unwrap().as_ptr());
+                let projection_loc = gl::GetUniformLocation(simple_shader.program_id, CString::new("projection").unwrap().as_ptr());
+
+                gl::UniformMatrix4fv(model_loc, 1, gl::FALSE, model_matrix.as_ptr());
+                gl::UniformMatrix4fv(view_loc, 1, gl::FALSE, view_matrix.as_ptr());
+                gl::UniformMatrix4fv(projection_loc, 1, gl::FALSE, projection_matrix.as_ptr());
+            }
+
+            unsafe {
+                gl::BindVertexArray(terrain_vao);
+                gl::DrawElements(
+                    gl::TRIANGLES,
+                    terrain_mesh.index_count,
+                    gl::UNSIGNED_INT,
+                    ptr::null(),
+                );
+                gl::BindVertexArray(0);
+            }
+
             context.swap_buffers().unwrap(); // we use "double buffering" to avoid artifacts
         }
     });
 
-
     // == //
     // == // From here on down there are only internals.
     // == //
-
 
     // Keep track of the health of the rendering thread
     let render_thread_healthy = Arc::new(RwLock::new(true));
