@@ -24,6 +24,7 @@ mod toolbox;
 use glutin::event::{Event, WindowEvent, DeviceEvent, KeyboardInput, ElementState::{Pressed, Released}, VirtualKeyCode::{self, *}};
 use glutin::event_loop::ControlFlow;
 
+// initial window size
 const INITIAL_SCREEN_W: u32 = 800;
 const INITIAL_SCREEN_H: u32 = 600;
 
@@ -58,16 +59,13 @@ fn offset<T>(n: u32) -> *const c_void {
 
 // == // Generate your VAO here
 unsafe fn create_vao(vertices: &Vec<f32>, indices: &Vec<u32>, colors: &Vec<f32>, normals: &Vec<f32>) -> u32 {
-
     let mut vao: u32 = 0;
-    let mut position_vbo: u32 = 0;
-    let mut color_vbo: u32 = 0;
-    let mut normal_vbo: u32 = 0;
-    let mut ebo: u32 = 0;
 
     gl::GenVertexArrays(1, &mut vao);
     gl::BindVertexArray(vao);
 
+    // Positions
+    let mut position_vbo: u32 = 0;
     gl::GenBuffers(1, &mut position_vbo);
     gl::BindBuffer(gl::ARRAY_BUFFER, position_vbo);
     gl::BufferData(
@@ -79,6 +77,8 @@ unsafe fn create_vao(vertices: &Vec<f32>, indices: &Vec<u32>, colors: &Vec<f32>,
     gl::VertexAttribPointer(0, 3, gl::FLOAT, gl::FALSE, 0, ptr::null());
     gl::EnableVertexAttribArray(0);
 
+    // Colors
+    let mut color_vbo: u32 = 0;
     gl::GenBuffers(1, &mut color_vbo);
     gl::BindBuffer(gl::ARRAY_BUFFER, color_vbo);
     gl::BufferData(
@@ -90,6 +90,8 @@ unsafe fn create_vao(vertices: &Vec<f32>, indices: &Vec<u32>, colors: &Vec<f32>,
     gl::VertexAttribPointer(1, 4, gl::FLOAT, gl::FALSE, 0, ptr::null());
     gl::EnableVertexAttribArray(1);
 
+    // Normals
+    let mut normal_vbo: u32 = 0;
     gl::GenBuffers(1, &mut normal_vbo);
     gl::BindBuffer(gl::ARRAY_BUFFER, normal_vbo);
     gl::BufferData(
@@ -101,6 +103,8 @@ unsafe fn create_vao(vertices: &Vec<f32>, indices: &Vec<u32>, colors: &Vec<f32>,
     gl::VertexAttribPointer(2, 3, gl::FLOAT, gl::FALSE, 0, ptr::null());
     gl::EnableVertexAttribArray(2);
 
+    // Indices
+    let mut ebo: u32 = 0;
     gl::GenBuffers(1, &mut ebo);
     gl::BindBuffer(gl::ELEMENT_ARRAY_BUFFER, ebo);
     gl::BufferData(
@@ -110,6 +114,7 @@ unsafe fn create_vao(vertices: &Vec<f32>, indices: &Vec<u32>, colors: &Vec<f32>,
         gl::STATIC_DRAW,
     );
 
+    // Unbind VAO (optional but good practice)
     gl::BindVertexArray(0);
 
     vao
@@ -121,6 +126,7 @@ fn draw_scene(
     view_projection_matrix: &glm::Mat4,
     shader_program: u32,
 ) {
+    // Local transformation matrix
     let mut local_transform = glm::translate(&glm::identity(), &node.position);
     local_transform = glm::translate(&local_transform, &node.reference_point);
     local_transform = glm::rotate_x(&local_transform, node.rotation.x);
@@ -129,7 +135,10 @@ fn draw_scene(
     local_transform = glm::translate(&local_transform, &(-node.reference_point));
     local_transform = glm::scale(&local_transform, &node.scale);
 
+    // Current transformation
     let current_transformation = transformation_so_far * local_transform;
+
+    // Draw the node if it has a VAO
     if node.vao_id != 0 && node.index_count > 0 {
         let mvp_matrix = view_projection_matrix * current_transformation;
         let model_matrix = current_transformation;
@@ -148,6 +157,7 @@ fn draw_scene(
         }
     }
 
+    // Recursively draw child nodes
     for &child_ptr in &node.children {
         let child_ref: &SceneNode = unsafe { &*child_ptr };
         draw_scene(
@@ -211,13 +221,12 @@ fn main() {
                 .link()
         };
 
-        //Camera stuff
         let mut camera_position = glm::vec3(0.0, 50.0, 200.0);
-        let mut camera_speed: f32 = 100.0;
 
-        //Terrain and vao
+        // Load the terrain mesh
         let terrain_mesh = mesh::Terrain::load("./resources/lunarsurface.obj");
 
+        // Create the VAO
         let terrain_vao = unsafe {
             create_vao(
                 &terrain_mesh.vertices,
@@ -227,10 +236,8 @@ fn main() {
             )
         };
 
-
-        //Heli and vao
         let helicopter = Helicopter::load("./resources/helicopter.obj");
-
+        // Create VAOs for each helicopter part
         let helicopter_body_vao = unsafe {
             create_vao(
                 &helicopter.body.vertices,
@@ -267,20 +274,25 @@ fn main() {
             )
         };
 
-        //Scene nodes
+        // Create the root node of the scene
         let mut root_node = SceneNode::new();
+
+        // Create the terrain node
         let mut terrain_node = SceneNode::from_vao(terrain_vao, terrain_mesh.index_count);
         terrain_node.reference_point = glm::vec3(0.0, 0.0, 0.0);
 
+        // Create helicopter nodes
         let mut helicopter_body_node = SceneNode::from_vao(helicopter_body_vao, helicopter.body.index_count);
         let mut helicopter_door_node = SceneNode::from_vao(helicopter_door_vao, helicopter.door.index_count);
         let mut helicopter_main_rotor_node = SceneNode::from_vao(helicopter_main_rotor_vao, helicopter.main_rotor.index_count);
         let mut helicopter_tail_rotor_node = SceneNode::from_vao(helicopter_tail_rotor_vao, helicopter.tail_rotor.index_count);
 
+        // Set reference points
         helicopter_body_node.reference_point = glm::vec3(0.0, 0.0, 0.0);
         helicopter_main_rotor_node.reference_point = glm::vec3(0.0, 0.0, 0.0);
         helicopter_tail_rotor_node.reference_point = glm::vec3(0.35, 2.3, 10.4);
 
+        // Build the scene graph
         helicopter_body_node.add_child(&helicopter_door_node);
         helicopter_body_node.add_child(&helicopter_main_rotor_node);
         helicopter_body_node.add_child(&helicopter_tail_rotor_node);
@@ -288,11 +300,11 @@ fn main() {
         terrain_node.add_child(&helicopter_body_node);
         root_node.add_child(&terrain_node);
 
-        let rotor_speed = 10.0;
-        let mut helicopter_body_position_y = 50.0;
-
         let first_frame_time = std::time::Instant::now();
         let mut previous_frame_time = first_frame_time;
+
+        let rotor_speed = 10.0;
+        let mut helicopter_body_position_y = 50.0;
 
         loop {
             let now = std::time::Instant::now();
@@ -314,23 +326,23 @@ fn main() {
             if let Ok(keys) = pressed_keys.lock() {
                 for key in keys.iter() {
                     match key {
-                        VirtualKeyCode::W => {
-                            camera_position.z -= camera_speed * delta_time;
-                        }
-                        VirtualKeyCode::S => {
-                            camera_position.z += camera_speed * delta_time;
-                        }
                         VirtualKeyCode::A => {
-                            camera_position.x -= camera_speed * delta_time;
+                            camera_position.x -= 10.0 * delta_time;
                         }
                         VirtualKeyCode::D => {
-                            camera_position.x += camera_speed * delta_time;
+                            camera_position.x += 10.0 * delta_time;
+                        }
+                        VirtualKeyCode::W => {
+                            camera_position.z -= 10.0 * delta_time;
+                        }
+                        VirtualKeyCode::S => {
+                            camera_position.z += 10.0 * delta_time;
                         }
                         VirtualKeyCode::Space => {
-                            camera_position.y += camera_speed * delta_time;
+                            camera_position.y += 10.0 * delta_time;
                         }
                         VirtualKeyCode::LShift => {
-                            camera_position.y -= camera_speed * delta_time;
+                            camera_position.y -= 10.0 * delta_time;
                         }
                         _ => {}
                     }
@@ -340,9 +352,11 @@ fn main() {
                 *delta = (0.0, 0.0); // reset when done
             }
 
+            // Update rotor rotations
             helicopter_main_rotor_node.rotation.y = elapsed * rotor_speed;
             helicopter_tail_rotor_node.rotation.x = elapsed * rotor_speed;
 
+            // Update helicopter position and rotation
             let heading = toolbox::simple_heading_animation(elapsed);
             helicopter_body_node.position.x = heading.x;
             helicopter_body_node.position.z = heading.z;
@@ -360,15 +374,18 @@ fn main() {
 
             let view_projection_matrix = projection_matrix * view_matrix;
 
+            // Clear the screen
             unsafe {
                 gl::ClearColor(0.1, 0.1, 0.1, 1.0);
                 gl::Clear(gl::COLOR_BUFFER_BIT | gl::DEPTH_BUFFER_BIT);
             }
 
+            // Activate the shader program
             unsafe {
                 simple_shader.activate();
             }
 
+            // Draw the scene graph
             draw_scene(
                 &root_node,
                 &glm::identity(),
@@ -380,7 +397,6 @@ fn main() {
         }
     });
 
-    // Keep track of the health of the rendering thread
     let render_thread_healthy = Arc::new(RwLock::new(true));
     let render_thread_watchdog = Arc::clone(&render_thread_healthy);
     thread::spawn(move || {
@@ -392,11 +408,9 @@ fn main() {
         }
     });
 
-    // Start the event loop -- This is where window events are initially handled
     el.run(move |event, _, control_flow| {
         *control_flow = ControlFlow::Wait;
 
-        // Terminate program if render thread panics
         if let Ok(health) = render_thread_healthy.read() {
             if *health == false {
                 *control_flow = ControlFlow::Exit;
@@ -405,7 +419,6 @@ fn main() {
 
         match event {
             Event::WindowEvent { event: WindowEvent::Resized(physical_size), .. } => {
-                //println!("New window size received: {}x{}", physical_size.width, physical_size.height);
                 println!("New window size received: {}x{}", physical_size.width, physical_size.height);
                 if let Ok(mut new_size) = arc_window_size.lock() {
                     *new_size = (physical_size.width, physical_size.height, true);
@@ -414,7 +427,6 @@ fn main() {
             Event::WindowEvent { event: WindowEvent::CloseRequested, .. } => {
                 *control_flow = ControlFlow::Exit;
             }
-            // Keep track of currently pressed keys to send to the rendering thread
             Event::WindowEvent { event: WindowEvent::KeyboardInput {
                     input: KeyboardInput { state: key_state, virtual_keycode: Some(keycode), .. }, .. }, .. } => {
 
@@ -434,7 +446,6 @@ fn main() {
                     }
                 }
 
-                // Handle Escape and Q keys separately
                 match keycode {
                     Escape => { *control_flow = ControlFlow::Exit; }
                     Q      => { *control_flow = ControlFlow::Exit; }
@@ -442,7 +453,6 @@ fn main() {
                 }
             }
             Event::DeviceEvent { event: DeviceEvent::MouseMotion { delta }, .. } => {
-                // Accumulate mouse movement
                 if let Ok(mut position) = arc_mouse_delta.lock() {
                     *position = (position.0 + delta.0 as f32, position.1 + delta.1 as f32);
                 }

@@ -1,16 +1,15 @@
-#version 330 core
+#version 410 core
 
-in vec4 vertexColor;  
-in vec3 vertexNormal; 
+in vec4 vertexColor;
+in vec3 fragNormal;
 
-out vec4 FragColor;
+out vec4 fragColor;
 
-void main()
-{
-    vec3 normal = normalize(vertexNormal);
-    vec3 lightDirection = normalize(vec3(0.8, -0.5, 0.6));
-    float diffuse = max(dot(normal, -lightDirection), 0.0);
-    vec3 color = vertexColor.rgb * diffuse;
-    FragColor = vec4(color, vertexColor.a);
+void main() {
+    vec3 lightDir = normalize(vec3(0.0, 1.0, 1.0));
+    float diff = max(dot(fragNormal, lightDir), 0.0);
+    vec3 diffuse = diff * vec3(1.0, 1.0, 1.0);
+
+    fragColor = vec4(vertexColor.rgb * diffuse, vertexColor.a);
 }
 
